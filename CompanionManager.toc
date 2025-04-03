@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: Companion Manager
+## Author: sica
+## Version: 1.0.0
+## Notes: Easy companion mananger
+## SavedVariablesPerCharacter: CompanionManagerOptions
+
+CompanionManager.lua
