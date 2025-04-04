@@ -1,19 +1,20 @@
+---@class CompanionManager
 CompanionManager = CompanionManager or {}
-CompanionManager.api = getfenv()
 
+---@class CompanionManager
 local m = CompanionManager
-local getn = m.api.getn
 
 BINDING_HEADER_CM_HEADER = "Companion Manager"
 BINDING_NAME_CM_OPENMENU = "Toggle menu"
-MAX_SKILLLINE_TABS = 8
 
+CompanionManager.name = "CompanionManager"
+CompanionManager.events = {}
 CompanionManager.categories = {
   Cats = { "Black Tabby", "Bombay", "Cornish Rex", "Corrupted Kitten", "Midnight", "Mr. Bigglesworth", "Orange Tabby", "Siamese", "Silver Tabby", "White Kitten", "White Tiger Cub" },
   Frogs = { "A Jubling's Tiny Home", "Azure Frog", "Bullfrog", "Dart Frog", "Dream Frog", "Golden Frog", "Infinite Frog", "Island Frog", "Pink Frog", "Poison Frog", "Pond Frog", "Snow Frog", "Tree Frog", "Wood Frog" },
-  Flying = { "Amani Eagle", "Bronze Whelpling", "Cockatiel", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Senegal", "Snowy Owl", "Spirite Darter Hatchling" },
+  Flying = { "Amani Eagle", "Bronze Whelpling", "Cockatiel", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Senegal", "Snowy Owl", "Sprite Darter Hatchling" },
   Turtles = { "Albino Snapjaw", "Hawksbill Snapjaw", "Leatherback Snapjaw", "Loggerhead Snapjaw", "Olive Snapjaw", "Speedy" },
-  Animals = { "Ancona", "Farm Chicken", "Lost Farm Sheep", "Lulu", "Snowshoe Rabbit", "Word Pup" },
+  Animals = { "Ancona", "Farm Chicken", "Lost Farm Sheep", "Lulu", "Scarlet Snake", "Snowshoe Rabbit", "Worg Pup" },
   Mechanical = { "Mechanical Chicken", "Green Steam Tonk", "Purple Steam Tonk" },
   Seasonal = { "Blitzen", "Father Winter's Helper", "Jingling Bell", "Green Helper Box", "Hedwig", "Mini Krampus", "Red Helper Box", "Tiny Snowman", "Winter Reindeer" },
   Bots = { "Field Repair Bot 75B", "Mechanical Auctioneer", "Summon: Auctioneer", "Summon: Barber", "Summon: Surgeon" }
@@ -26,9 +27,9 @@ CompanionManager.category_icons = {
   Turtles = "Interface\\Icons\\Ability_Hunter_Pet_Turtle",
   Animals = "Interface\\Icons\\Spell_Magic_PolymorphChicken",
   Mechanical = "Interface\\Icons\\INV_Gizmo_02",
-  Seasonal = "Interface\\Icons\\INV_Holiday_Christmas_Present_01",
+  Seasonal = "Interface\\Icons\\inv_pet_snowman",
   Bots = "Interface\\Icons\\INV_Egg_05",
-  Other = "Interface\\Icons\\Spell_Shaman_Hex"
+  Other = "Interface\\Icons\\INV_Box_PetCarrier_01"
 }
 
 function CompanionManager:init()
@@ -37,34 +38,40 @@ function CompanionManager:init()
   self.shown = {}
   self.companions = {}
 
-  local frame = m.api.CreateFrame( "Frame" )
-  frame:SetScript( "OnEvent", function() m[ event ]() end )
-  for _, event in { "PLAYER_LOGIN", "SPELLS_CHANGED" } do
-    frame:RegisterEvent( event )
+  self.frame = CreateFrame( "Frame" )
+  self.frame:SetScript( "OnEvent", function()
+    if m.events[ event ] then
+      m.events[ event ]()
+    end
+  end )
+
+  for k,_ in pairs(m.events) do
+    m.frame:RegisterEvent(k)
   end
 end
 
-function CompanionManager.PLAYER_LOGIN()
+function CompanionManager.events.PLAYER_LOGIN()
   SLASH_COMPANIONMANAGER1 = "/cm"
-  m.api.SlashCmdList[ "COMPANIONMANAGER" ] = m.slash_command
+  SlashCmdList[ "COMPANIONMANAGER" ] = m.slash_command
   m.spells_changed = true
 
-  m.icon_size = m.api.CompanionManagerOptions.icon_size or 32
+  m.icon_size = CompanionManagerOptions and CompanionManagerOptions.icon_size or 32
+  m.verbose = CompanionManagerOptions and CompanionManagerOptions.verbose or true
 
-  local version = m.api.GetAddOnMetadata( "CompanionManager", "Version" )
-  m.info( string.format( "Loaded (|cffeda55fv%s|r).", version ) )
+  local version = GetAddOnMetadata( m.name, "Version" )
+  m.info( string.format( "Loaded (|cffeda55fv%s|r).", version ), true )
 end
 
-function CompanionManager.SPELLS_CHANGED()
+function CompanionManager.events.SPELLS_CHANGED()
   m.spells_changed = true
 end
 
 function CompanionManager.create_frame()
-  local frame = m.api.CreateFrame( "Frame", "CompanionManagerMainFrame" )
+  local frame = CreateFrame( "Frame", "CompanionManagerMainFrame" )
   frame:SetWidth( 200 )
   frame:SetHeight( 200 )
 
-  m.tooltip = m.api.CreateFrame( "Frame", nil, frame )
+  m.tooltip = CreateFrame( "Frame", nil, frame )
   m.tooltip:SetFrameStrata( "TOOLTIP" )
   m.tooltip:SetBackdrop( {
     bgFile = "Interface\\Addons\\CompanionManager\\assets\\Companion-Tooltip",
@@ -122,7 +129,7 @@ function CompanionManager.show_companions( parent, angle, category )
     local x = px + radius * math.cos( offsetAngle )
     local y = py + radius * math.sin( offsetAngle )
 
-    local button = m.button_companion_create( m.popup, companion.icon, companion.id, companion.name )
+    local button = m.button_companion_create( m.popup, companion )
     button:SetPoint( "CENTER", m.popup, "BOTTOMLEFT", x, y )
     i = i + 1
   end
@@ -149,7 +156,7 @@ function CompanionManager.create_button( parent, type )
     return button
   end
 
-  button = m.api.CreateFrame( "Button", nil, parent )
+  button = CreateFrame( "Button", nil, parent )
   button:SetWidth( m.icon_size )
   button:SetHeight( m.icon_size )
 
@@ -221,7 +228,7 @@ function CompanionManager.create_button( parent, type )
 
   button:SetScript( "OnLeave", function()
     hover_tex:SetVertexColor( 1, 1, 0, 0 )
-    m.api.GameTooltip:Hide()
+    GameTooltip:Hide()
     m.tooltip:Hide()
   end )
 
@@ -278,27 +285,37 @@ function CompanionManager.button_category_on_click()
   end
 end
 
-function CompanionManager.button_companion_create( parent, icon, id, name )
+---@param parent table
+---@param companion table
+function CompanionManager.button_companion_create( parent, companion )
   local button = m.create_button( parent, "companion_button" )
-  button.set_icon( icon )
+  button.set_icon( companion.icon )
 
   local on_enter = button:GetScript( "OnEnter" )
   button:SetScript( "OnEnter", function()
     on_enter()
-    m.api.GameTooltip:SetOwner( this, "ANCHOR_RIGHT" )
-    if (m.api.GameTooltip:SetSpell( id, m.api.BOOKTYPE_SPELL )) then
-      m.api.GameTooltip:Show()
+    GameTooltip:SetOwner( this, "ANCHOR_RIGHT" )
+    if (GameTooltip:SetSpell( companion.id, BOOKTYPE_SPELL )) then
+      GameTooltip:Show()
     end
   end )
 
   button:SetScript( "OnClick", function()
-    m.api.CastSpell( id, m.api.BOOKTYPE_SPELL )
+    m.summon_companion( companion )
     m.hide()
   end )
 
   table.insert( m.shown, button )
 
   return button
+end
+
+---@param companion table
+function CompanionManager.summon_companion( companion )
+  CastSpell( companion.id, BOOKTYPE_SPELL )
+  if m.verbose then
+    m.info( "Summoning " .. m.make_link( companion.name, companion.id ) )
+  end
 end
 
 function CompanionManager.summon_random_companion()
@@ -317,8 +334,7 @@ function CompanionManager.summon_random_companion()
     for _, companion in pairs( category ) do
       count = count + 1
       if count == random then
-        m.info( "Summoning " .. m.make_link( companion.name, companion.id ) )
-        m.api.CastSpell( companion.id, m.api.BOOKTYPE_SPELL )
+        m.summon_companion( companion )
         break
       end
     end
@@ -328,7 +344,7 @@ function CompanionManager.summon_random_companion()
 end
 
 function CompanionManager.make_link( name, id )
-  return string.format( "|cff71d5ff|Hspell:%d:0:%s:|h[%s]|h|r", id, m.api.UnitName( "player" ), name )
+  return string.format( "|cff71d5ff|Hspell:%d:0:%s:|h[%s]|h|r", id, UnitName( "player" ), name )
 end
 
 function CompanionManager.get_from_cache( type )
@@ -353,9 +369,10 @@ function CompanionManager.find_category( name )
 end
 
 function CompanionManager.get_companions()
+  local MAX_SKILLLINE_TABS = 8
   if not m.spell_tab then
     for i = 1, MAX_SKILLLINE_TABS do
-      local tab_name = m.api.GetSpellTabInfo( i )
+      local tab_name = GetSpellTabInfo( i )
       if tab_name == "ZzCompanions" then
         m.spell_tab = i
         break
@@ -368,11 +385,11 @@ function CompanionManager.get_companions()
     return false
   end
 
-  local _, _, offset, count = m.api.GetSpellTabInfo( m.spell_tab )
+  local _, _, offset, count = GetSpellTabInfo( m.spell_tab )
   m.companions = {}
   for i = offset + 1, offset + count do
-    local name = m.api.GetSpellName( i, m.api.BOOKTYPE_SPELL )
-    local texture = m.api.GetSpellTexture( i, m.api.BOOKTYPE_SPELL )
+    local name = GetSpellName( i, BOOKTYPE_SPELL )
+    local texture = GetSpellTexture( i, BOOKTYPE_SPELL )
     local category = m.find_category( name ) or "Other"
 
     if category and not m.companions[ category ] then
@@ -391,7 +408,7 @@ end
 
 ---@param no_point boolean?
 function CompanionManager.show( no_point )
-  local x, y = m.api.GetCursorPosition()
+  local x, y = GetCursorPosition()
 
   if m.spells_changed then
     if m.get_companions() then
@@ -408,7 +425,7 @@ function CompanionManager.show( no_point )
 
   if not no_point then
     m.popup:ClearAllPoints()
-    m.popup:SetPoint( "CENTER", m.api.UIParent, "BOTTOMLEFT", (x), (y) )
+    m.popup:SetPoint( "CENTER", UIParent, "BOTTOMLEFT", (x), (y) )
   end
   m.hide_companions()
   m.popup:Show()
@@ -429,10 +446,8 @@ function CompanionManager.toggle()
 end
 
 function CompanionManager.slash_command( args )
-  if args == "help" then
-    m.api.DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ffCompanion Manager Help|r" )
-    m.api.DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm|r Toggle menu" )
-    m.api.DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm icon-size|r Set icon size <|cffddddddsize|r>" )
+  if args == "" then
+    m.show()
     return
   end
 
@@ -447,12 +462,23 @@ function CompanionManager.slash_command( args )
     end
     return
   end
-  m.show()
+
+  if args == "verbose" then
+    m.verbose = not m.verbose
+    CompanionManagerOptions.verbose = m.verbose
+    m.info( string.format( "%showing companion name on summon.", m.verbose and "|cff00dd00ON|r S" or "|cffdd0000OFF|r Not s" ) )
+    return
+  end
+
+  DEFAULT_CHAT_FRAME:AddMessage( string.format( "|cff71d5ff%s Help|r", m.name ) )
+  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm|r Toggle menu" )
+  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm icon-size|r Set icon size <|cffaaaaaasize|r>" )
+  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm verbose|r Toggle showing companion name on summon" )
 end
 
 function CompanionManager.update_size( size )
   local is_visible = false
-  m.api.CompanionManagerOptions.icon_size = size
+  CompanionManagerOptions.icon_size = size
   m.icon_size = size
 
   if not m.popup then return end
@@ -504,8 +530,11 @@ function CompanionManager.update_size( size )
   end
 end
 
-function CompanionManager.info( message )
-  m.api.DEFAULT_CHAT_FRAME:AddMessage( string.format( "|cff71d5ffCompanion|cff209ff9Manager|r: %s", message ) )
+---@param message string
+---@param long boolean?
+function CompanionManager.info( message, long )
+  local tag = long and "|cff71d5ffCompanion|cff209ff9Manager|r" or "|cff71d5ffC|cff209ff9M|r"
+  DEFAULT_CHAT_FRAME:AddMessage( string.format( "%s: %s", tag, message ) )
 end
 
 function CompanionManager.dump( o )
