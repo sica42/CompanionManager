@@ -12,12 +12,14 @@ CompanionManager.events = {}
 CompanionManager.categories = {
   Cats = { "Black Tabby", "Bombay", "Cornish Rex", "Corrupted Kitten", "Midnight", "Mr. Bigglesworth", "Orange Tabby", "Siamese", "Silver Tabby", "White Kitten", "White Tiger Cub" },
   Frogs = { "A Jubling's Tiny Home", "Azure Frog", "Bullfrog", "Dart Frog", "Dream Frog", "Golden Frog", "Infinite Frog", "Island Frog", "Pink Frog", "Poison Frog", "Pond Frog", "Snow Frog", "Tree Frog", "Wood Frog" },
-  Flying = { "Amani Eagle", "Bronze Whelpling", "Cockatiel", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Senegal", "Snowy Owl", "Sprite Darter Hatchling" },
+  Flying = { "Amani Eagle", "Azure Whelpling", "Bronze Whelpling", "Cockatiel", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Senegal", "Snowy Owl", "Sprite Darter Hatchling" },
   Turtles = { "Albino Snapjaw", "Hawksbill Snapjaw", "Leatherback Snapjaw", "Loggerhead Snapjaw", "Olive Snapjaw", "Speedy" },
-  Animals = { "Ancona", "Farm Chicken", "Lost Farm Sheep", "Lulu", "Scarlet Snake", "Snowshoe Rabbit", "Worg Pup" },
-  Mechanical = { "Mechanical Chicken", "Green Steam Tonk", "Purple Steam Tonk" },
+  Animals = { "Albino Snake", "Ancona", "Black Kingsnake", "Crimson Snake", "Farm Chicken", "Lost Farm Sheep", "Lulu", "Scarlet Snake", "Snowshoe Rabbit", "Worg Pup" },
+  Mechanical = { "Darkmoon Tonk", "Green Steam Tonk", "Mechanical Chicken", "Purple Steam Tonk" },
   Seasonal = { "Blitzen", "Father Winter's Helper", "Jingling Bell", "Green Helper Box", "Hedwig", "Mini Krampus", "Red Helper Box", "Tiny Snowman", "Winter Reindeer" },
-  Bots = { "Field Repair Bot 75B", "Mechanical Auctioneer", "Summon: Auctioneer", "Summon: Barber", "Summon: Surgeon" }
+  Bots = { "Caravan Kodo", "Field Repair Bot 75B", "Forworn Mule", "Mechanical Auctioneer", "Summon: Auctioneer", "Summon: Barber", "Summon: Surgeon" },
+  Illusions = {},
+  Toys = {},
 }
 
 CompanionManager.category_icons = {
@@ -29,13 +31,14 @@ CompanionManager.category_icons = {
   Mechanical = "Interface\\Icons\\INV_Gizmo_02",
   Seasonal = "Interface\\Icons\\inv_pet_snowman",
   Bots = "Interface\\Icons\\INV_Egg_05",
-  Other = "Interface\\Icons\\INV_Box_PetCarrier_01"
+  Other = "Interface\\Icons\\INV_Box_PetCarrier_01",
+  Toys = "Interface\\Icons\\inv_misc_toy_10",
+  Illusions = "Interface\\Icons\\Ability_Rogue_Disguise"
 }
 
 function CompanionManager:init()
-  self.icon_size = 64
+  self.radius = 1.5625
   self.frame_cache = {}
-  self.shown = {}
   self.companions = {}
 
   self.frame = CreateFrame( "Frame" )
@@ -45,18 +48,36 @@ function CompanionManager:init()
     end
   end )
 
-  for k,_ in pairs(m.events) do
-    m.frame:RegisterEvent(k)
+  for k, _ in pairs( m.events ) do
+    m.frame:RegisterEvent( k )
   end
 end
 
 function CompanionManager.events.PLAYER_LOGIN()
-  SLASH_COMPANIONMANAGER1 = "/cm"
-  SlashCmdList[ "COMPANIONMANAGER" ] = m.slash_command
   m.spells_changed = true
 
-  m.icon_size = CompanionManagerOptions and CompanionManagerOptions.icon_size or 32
-  m.verbose = CompanionManagerOptions and CompanionManagerOptions.verbose or true
+  m.slash_command = m.SlashCommand.new( m.name, "cm" )
+  m.slash_command.init()
+
+  m.db = CompanionManagerOptions or {}
+  m.db.icon_size = m.db.icon_size or 32
+  m.db.verbose = m.db.verbose or true
+  m.db.show_toys = m.db.show_toys or false
+  m.db.companion_order = m.db.companion_order or {}
+  m.db.category_angle = m.db.category_angle or 0
+  m.db.category_order = m.db.category_order or {
+    "Cats",
+    "Frogs",
+    "Turtles",
+    "Flying",
+    "Animals",
+    "Seasonal",
+    "Mechanical",
+    "Other",
+    "Bots",
+    "Toys",
+    "Illusions"
+  }
 
   local version = GetAddOnMetadata( m.name, "Version" )
   m.info( string.format( "Loaded (|cffeda55fv%s|r).", version ), true )
@@ -85,64 +106,31 @@ function CompanionManager.create_frame()
   m.tooltip.label:SetPoint( "CENTER", 0, 0 )
   m.tooltip:Hide()
 
+  m.drag_frame = CreateFrame( "Frame", nil, UIParent )
+  m.drag_frame:SetWidth( 32 )
+  m.drag_frame:SetHeight( 32 )
+  m.drag_frame:SetFrameStrata( "TOOLTIP" )
+  m.drag_frame:Hide()
+  m.drag_frame:SetScript( "OnUpdate", m.drag_frame_update )
+  m.drag_frame.icon = m.drag_frame:CreateTexture( nil, "OVERLAY" )
+  m.drag_frame.icon:SetAllPoints()
+
   m.center_button = m.button_category_create( frame, "Interface\\Buttons\\UI-GroupLoot-Dice-Up", "Random" )
   m.center_button:SetPoint( "CENTER", frame, "CENTER", 0, 0 )
   m.center_button.is_center = true
+  m.center_button:RegisterForDrag( "LeftButton" )
+
+  m.center_button:SetScript( "OnDragStart", function()
+    local _, y = GetCursorPosition()
+    m.rotate_start = y
+    m.rotate_start_angle = m.db.category_angle
+    this:SetScript( "OnUpdate", m.center_button_update )
+  end )
+  m.center_button:SetScript( "OnDragStop", function()
+    this:SetScript( "OnUpdate", nil )
+  end )
 
   return frame
-end
-
-function CompanionManager.show_categories()
-  local centerX, centerY = m.popup:GetWidth() / 2, m.popup:GetWidth() / 2
-  local radius = m.icon_size * 1.5625
-  local icon_count = 0
-
-  for _ in pairs( m.companions ) do
-    icon_count = icon_count + 1
-  end
-
-  local i = 0
-  for category, icon in pairs( m.category_icons ) do
-    local angle = (i / icon_count) * (2 * math.pi)
-    local x = centerX + radius * math.cos( angle )
-    local y = centerY + radius * math.sin( angle )
-
-    if m.companions[ category ] then
-      local b = m.button_category_create( m.popup, icon, category )
-      b:SetPoint( "CENTER", m.popup, "BOTTOMLEFT", x, y )
-      i = i + 1
-    end
-  end
-end
-
-function CompanionManager.show_companions( parent, angle, category )
-  local radius = m.icon_size * 2.65525
-  local count = getn( m.companions[ category ] )
-  local spread = 0.5
-  local px, py = 100, 100
-
-  m.visible_category = category
-
-  local i = (-count / 2)
-  for _, companion in ipairs( m.companions[ category ] ) do
-    local offsetAngle = angle + ((i + 0.5) * spread)
-    local x = px + radius * math.cos( offsetAngle )
-    local y = py + radius * math.sin( offsetAngle )
-
-    local button = m.button_companion_create( m.popup, companion )
-    button:SetPoint( "CENTER", m.popup, "BOTTOMLEFT", x, y )
-    i = i + 1
-  end
-end
-
-function CompanionManager.hide_companions()
-  m.visible_category = nil
-  for key, button in ipairs( m.shown ) do
-    button:Hide()
-    button.is_used = false
-    m.shown[ key ] = nil
-  end
-  m.shown.n = 0
 end
 
 ---@param parent table
@@ -157,8 +145,9 @@ function CompanionManager.create_button( parent, type )
   end
 
   button = CreateFrame( "Button", nil, parent )
-  button:SetWidth( m.icon_size )
-  button:SetHeight( m.icon_size )
+  button:SetWidth( m.db.icon_size )
+  button:SetHeight( m.db.icon_size )
+  button:RegisterForDrag( "LeftButton" )
 
   local frame_tex = button:CreateTexture( nil, "ARTWORK" )
   frame_tex:SetTexture( "Interface\\Addons\\CompanionManager\\assets\\Companion-Button.tga" )
@@ -166,61 +155,65 @@ function CompanionManager.create_button( parent, type )
 
   local bg_tex = button:CreateTexture( nil, "BACKGROUND" )
   bg_tex:SetTexture( "Interface\\CharacterFrame\\TempPortraitAlphaMaskSmall" )
-  bg_tex:SetPoint( "TOPLEFT", m.icon_size / 10.666, -m.icon_size / 10.666 )
-  bg_tex:SetPoint( "BOTTOMRIGHT", -m.icon_size / 10.6666, m.icon_size / 10.666 )
+  bg_tex:SetPoint( "TOPLEFT", m.db.icon_size / 10.666, -m.db.icon_size / 10.666 )
+  bg_tex:SetPoint( "BOTTOMRIGHT", -m.db.icon_size / 10.6666, m.db.icon_size / 10.666 )
   bg_tex:SetVertexColor( 0, 0, 0, 1 )
   button.bg_tex = bg_tex
 
   local center = button:CreateTexture( nil, "BORDER" )
   center:SetTexCoord( 0.15, 0.85, 0.15, 0.85 )
-  center:SetWidth( m.icon_size * 0.656 )
-  center:SetHeight( m.icon_size * 0.656 )
+  center:SetWidth( m.db.icon_size * 0.656 )
+  center:SetHeight( m.db.icon_size * 0.656 )
   center:SetPoint( "CENTER", 0, 0 )
   button.center = center
 
   local top = button:CreateTexture( nil, "BORDER" )
   top:SetTexCoord( 0.3, 0.7, 0.1, 0.15 )
-  top:SetWidth( m.icon_size * 0.4 )
-  top:SetHeight( m.icon_size / 12.8 )
+  top:SetWidth( m.db.icon_size * 0.4 )
+  top:SetHeight( m.db.icon_size / 12.8 )
   top:SetPoint( "BOTTOM", center, "TOP" )
   button.top = top
 
   local bottom = button:CreateTexture( nil, "BORDER" )
   bottom:SetTexCoord( 0.3, 0.7, 0.85, 0.9 )
-  bottom:SetWidth( m.icon_size * 0.4 )
-  bottom:SetHeight( m.icon_size / 12.8 )
+  bottom:SetWidth( m.db.icon_size * 0.4 )
+  bottom:SetHeight( m.db.icon_size / 12.8 )
   bottom:SetPoint( "TOP", center, "BOTTOM" )
   button.bottom = bottom
 
   local left = button:CreateTexture( nil, "BORDER" )
   left:SetTexCoord( 0.1, 0.15, 0.3, 0.7 )
-  left:SetWidth( m.icon_size / 12.8 )
-  left:SetHeight( m.icon_size * 0.4 )
+  left:SetWidth( m.db.icon_size / 12.8 )
+  left:SetHeight( m.db.icon_size * 0.4 )
   left:SetPoint( "RIGHT", center, "LEFT" )
   button.left = left
 
   local right = button:CreateTexture( nil, "BORDER" )
   right:SetTexCoord( 0.85, 0.9, 0.3, 0.7 )
-  right:SetWidth( m.icon_size / 12.8 )
-  right:SetHeight( m.icon_size * 0.4 )
+  right:SetWidth( m.db.icon_size / 12.8 )
+  right:SetHeight( m.db.icon_size * 0.4 )
   right:SetPoint( "LEFT", center, "RIGHT" )
   button.right = right
 
   local hover_tex = button:CreateTexture( nil, "ARTWORK" )
   hover_tex:SetTexture( "Interface\\Addons\\CompanionManager\\assets\\Companion-Button-Glow.tga" )
-  hover_tex:SetPoint( "TOPLEFT", m.icon_size / 15, -m.icon_size / 15 )
-  hover_tex:SetPoint( "BOTTOMRIGHT", -m.icon_size / 15, m.icon_size / 15 )
+  hover_tex:SetPoint( "TOPLEFT", m.db.icon_size / 15, -m.db.icon_size / 15 )
+  hover_tex:SetPoint( "BOTTOMRIGHT", -m.db.icon_size / 15, m.db.icon_size / 15 )
   hover_tex:SetBlendMode( "ADD" )
   hover_tex:SetVertexColor( 1, 1, 0, 0 )
   button.hover_tex = hover_tex
 
   button.set_icon = function( button_icon )
+    button.icon = button_icon
     center:SetTexture( button_icon )
     top:SetTexture( button_icon )
     bottom:SetTexture( button_icon )
     left:SetTexture( button_icon )
     right:SetTexture( button_icon )
   end
+
+  button:SetScript( "OnDragStart", m.button_drag_start )
+  button:SetScript( "OnDragStop", m.button_drag_stop )
 
   button:SetScript( "OnEnter", function()
     hover_tex:SetVertexColor( 1, 1, 0, 1 )
@@ -243,20 +236,21 @@ end
 ---@param category string
 function CompanionManager.button_category_create( parent, icon, category )
   local button = m.create_button( parent, "category_button" )
-  local on_enter = button:GetScript( "OnEnter" )
+  button.on_enter = button:GetScript( "OnEnter" )
 
   button.set_icon( icon )
   button.category = category
 
   button:SetScript( "OnEnter", function()
-    on_enter()
+    button.on_enter()
     m.hide_companions()
-    if category == "Random" then return end
+
+    if m.is_dragging or category == "Random" then return end
 
     local _, _, _, x, y = button:GetPoint()
     local angle = math.atan2( y - 100, x - 100 )
 
-    m.show_companions( button, angle, category )
+    m.show_companions( angle, category )
     m.tooltip.label:SetText( category )
     m.tooltip:Show()
   end )
@@ -265,6 +259,194 @@ function CompanionManager.button_category_create( parent, icon, category )
   button:SetScript( "OnClick", m.button_category_on_click )
 
   return button
+end
+
+---@param parent table
+---@param companion table
+function CompanionManager.button_companion_create( parent, companion )
+  local button = m.create_button( parent, "companion_button" )
+  button.set_icon( companion.icon )
+  button.category = companion.category
+  button.name = companion.name
+  button.id = companion.id
+
+  local on_enter = button:GetScript( "OnEnter" )
+  button:SetScript( "OnEnter", function()
+    on_enter()
+    if m.is_dragging then return end
+
+    GameTooltip:SetOwner( this, "ANCHOR_RIGHT" )
+    if (GameTooltip:SetSpell( companion.id, BOOKTYPE_SPELL )) then
+      GameTooltip:Show()
+    end
+  end )
+
+  button:SetScript( "OnClick", function()
+    m.summon_companion( companion )
+    m.hide()
+  end )
+
+  return button
+end
+
+function CompanionManager.button_drag_start()
+  m.is_dragging = true
+  m.drag_frame.icon:SetTexture( this.icon )
+  m.drag_frame:Show()
+end
+
+function CompanionManager.button_drag_stop()
+  m.is_dragging = false
+  m.drag_frame:Hide()
+
+  local focus = GetMouseFocus()
+  if this.category and focus.category then
+    m.swap_category( this.category, focus.category )
+    m.update_size( m.db.icon_size, true )
+  end
+
+  if this.id and focus.id then
+    m.swap_companion(
+      { id = this.id, name = this.name, category = this.category },
+      { id = focus.id, name = focus.name, category = focus.category }
+    )
+    m.hide_companions()
+    m.show_companions( m.current_angle, this.category )
+  end
+end
+
+function CompanionManager.drag_frame_update()
+  local x, y = GetCursorPosition()
+  local scale = UIParent:GetEffectiveScale()
+  this:SetPoint( "CENTER", UIParent, "BOTTOMLEFT", x / scale, y / scale )
+end
+
+function CompanionManager.center_button_update()
+  local _, y = GetCursorPosition()
+  m.db.category_angle = m.rotate_start_angle + (m.rotate_start - y) / 50
+
+  m.update_size( m.db.icon_size, true )
+  m.show_categories()
+end
+
+---@param category1 string
+---@param category2 string
+function CompanionManager.swap_category( category1, category2 )
+  for i, category in ipairs( m.db.category_order ) do
+    if category == category1 then
+      m.db.category_order[ i ] = category2
+    elseif category == category2 then
+      m.db.category_order[ i ] = category1
+    end
+  end
+end
+
+---@param companion1 table
+---@param companion2 table
+function CompanionManager.swap_companion( companion1, companion2 )
+  local category = companion1.category
+
+  for i, id in ipairs( m.db.companion_order[ category ] ) do
+    if id == companion1.id then
+      m.db.companion_order[ category ][ i ] = companion2.id
+    elseif id == companion2.id then
+      m.db.companion_order[ category ][ i ] = companion1.id
+    end
+  end
+end
+
+function CompanionManager.show_categories()
+  local centerX, centerY = m.popup:GetWidth() / 2, m.popup:GetWidth() / 2
+  local icon_count = 0
+
+  for _ in pairs( m.companions ) do
+    icon_count = icon_count + 1
+  end
+
+  m.radius = math.max( icon_count * 0.17, 1.5 )
+
+  local radius = m.db.icon_size * m.radius
+  local i = 0
+  for _, category in ipairs( m.db.category_order ) do
+    local icon = m.category_icons[ category ]
+    local angle = (i / icon_count) * (2 * math.pi)
+    angle = angle + m.db.category_angle
+    local x = centerX + radius * math.cos( angle )
+    local y = centerY + radius * math.sin( angle )
+
+    if m.companions[ category ] then
+      local b = m.button_category_create( m.popup, icon, category )
+      b:SetPoint( "CENTER", m.popup, "BOTTOMLEFT", x, y )
+      i = i + 1
+    end
+  end
+end
+
+---@param angle number
+---@param category string
+function CompanionManager.show_companions( angle, category )
+  local radius = m.db.icon_size * m.radius * 1.78
+  local count = getn( m.companions[ category ] )
+  local spread = 36 / (32 * m.radius * 1.72)
+  local px, py = 100, 100
+
+  radius = math.min( radius, 120 )
+  m.visible_category = category
+  m.current_category = category
+  m.current_angle = angle
+
+  local function find( table, id )
+    for i, companion in ipairs( table ) do
+      if type( companion ) == "number" and companion == id then return i end
+      if type( companion ) == "table" and companion.id == id then return i end
+    end
+    return nil
+  end
+
+  m.db.companion_order[ category ] = m.db.companion_order[ category ] or {}
+
+  if count ~= getn( m.db.companion_order[ category ] ) then
+    for _, companion in ipairs( m.companions[ category ] ) do
+      if not find( m.db.companion_order[ category ], tonumber( companion.id ) ) then
+        table.insert( m.db.companion_order[ category ], companion.id )
+      end
+    end
+  end
+
+  local i = (-count / 2)
+  local c = count
+  for _, id in ipairs( m.db.companion_order[ category ] ) do
+    local index = find( m.companions[ category ], id )
+    local companion = m.companions[ category ][ index ]
+    companion.category = category
+    if i > 3 then
+      radius = m.db.icon_size * m.radius * 2.6
+      spread = 36 / (32 * m.radius * 2.6)
+      i = (-c / 2)
+    end
+    local offsetAngle = angle + ((i + 0.5) * spread)
+    local x = px + radius * math.cos( offsetAngle )
+    local y = py + radius * math.sin( offsetAngle )
+
+    local button = m.button_companion_create( m.popup, companion )
+    button:SetPoint( "CENTER", m.popup, "BOTTOMLEFT", x, y )
+    i = i + 1
+    c = c - 1
+  end
+end
+
+function CompanionManager.hide_companions()
+  m.drag_frame:Hide()
+  m.is_dragging = false
+  m.visible_category = nil
+
+  if m.frame_cache[ "companion_button" ] then
+    for i = 1, getn( m.frame_cache[ "companion_button" ] ) do
+      local b = m.frame_cache[ "companion_button" ][ i ]
+      b.is_used = false
+      b:Hide()
+    end
+  end
 end
 
 function CompanionManager.button_category_on_click()
@@ -277,7 +459,7 @@ function CompanionManager.button_category_on_click()
       else
         local _, _, _, x, y = this:GetPoint()
         local angle = math.atan2( y - 100, x - 100 )
-        m.show_companions( this, angle, this.category )
+        m.show_companions( angle, this.category )
       end
     end
   else
@@ -285,35 +467,10 @@ function CompanionManager.button_category_on_click()
   end
 end
 
----@param parent table
----@param companion table
-function CompanionManager.button_companion_create( parent, companion )
-  local button = m.create_button( parent, "companion_button" )
-  button.set_icon( companion.icon )
-
-  local on_enter = button:GetScript( "OnEnter" )
-  button:SetScript( "OnEnter", function()
-    on_enter()
-    GameTooltip:SetOwner( this, "ANCHOR_RIGHT" )
-    if (GameTooltip:SetSpell( companion.id, BOOKTYPE_SPELL )) then
-      GameTooltip:Show()
-    end
-  end )
-
-  button:SetScript( "OnClick", function()
-    m.summon_companion( companion )
-    m.hide()
-  end )
-
-  table.insert( m.shown, button )
-
-  return button
-end
-
 ---@param companion table
 function CompanionManager.summon_companion( companion )
   CastSpell( companion.id, BOOKTYPE_SPELL )
-  if m.verbose then
+  if m.db.verbose then
     m.info( "Summoning " .. m.make_link( companion.name, companion.id ) )
   end
 end
@@ -368,24 +525,65 @@ function CompanionManager.find_category( name )
   return nil
 end
 
-function CompanionManager.get_companions()
+function CompanionManager.get_toys()
   local MAX_SKILLLINE_TABS = 8
-  if not m.spell_tab then
+  if not m.toys_tab then
     for i = 1, MAX_SKILLLINE_TABS do
       local tab_name = GetSpellTabInfo( i )
-      if tab_name == "ZzCompanions" then
-        m.spell_tab = i
+      if tab_name == "ZzzzToys" then
+        m.toys_tab = i
         break
       end
     end
   end
 
-  if not m.spell_tab then
+  if not m.toys_tab then
+    m.info( "|cffff0000ERROR|r: No toys found!" )
+    return false
+  end
+
+  local _, _, offset, count = GetSpellTabInfo( m.toys_tab )
+  for i = offset + 1, offset + count do
+    local name = GetSpellName( i, BOOKTYPE_SPELL )
+    local texture = GetSpellTexture( i, BOOKTYPE_SPELL )
+    local category = "Toys"
+
+    if string.find( name, "^Illusion: " ) then
+      category = "Illusions"
+    end
+
+    if category and not m.companions[ category ] then
+      m.companions[ category ] = {}
+    end
+
+    table.insert( m.companions[ category ], {
+      id = i,
+      name = name,
+      icon = texture
+    } )
+  end
+
+  return true
+end
+
+function CompanionManager.get_companions()
+  local MAX_SKILLLINE_TABS = 8
+  if not m.compantion_tab then
+    for i = 1, MAX_SKILLLINE_TABS do
+      local tab_name = GetSpellTabInfo( i )
+      if tab_name == "ZzCompanions" then
+        m.compantion_tab = i
+        break
+      end
+    end
+  end
+
+  if not m.compantion_tab then
     m.info( "|cffff0000ERROR|r: No companions found!" )
     return false
   end
 
-  local _, _, offset, count = GetSpellTabInfo( m.spell_tab )
+  local _, _, offset, count = GetSpellTabInfo( m.compantion_tab )
   m.companions = {}
   for i = offset + 1, offset + count do
     local name = GetSpellName( i, BOOKTYPE_SPELL )
@@ -406,24 +604,92 @@ function CompanionManager.get_companions()
   return true
 end
 
----@param no_point boolean?
-function CompanionManager.show( no_point )
+---@param size number
+---@param rotating boolean?
+function CompanionManager.update_size( size, rotating )
+  local is_visible = false
+  m.spells_changed = true
+  m.db.icon_size = size
+
+  if not m.popup then return end
+
+  if not rotating and m.popup:IsVisible() then
+    is_visible = true
+    m.hide_companions()
+    m.hide()
+  end
+
+  local function set_size( b )
+    b:SetWidth( m.db.icon_size )
+    b:SetHeight( m.db.icon_size )
+
+    b.bg_tex:SetPoint( "TOPLEFT", m.db.icon_size / 10.666, -m.db.icon_size / 10.666 )
+    b.bg_tex:SetPoint( "BOTTOMRIGHT", -m.db.icon_size / 10.6666, m.db.icon_size / 10.666 )
+    b.center:SetWidth( m.db.icon_size * 0.656 )
+    b.center:SetHeight( m.db.icon_size * 0.656 )
+    b.top:SetWidth( m.db.icon_size * 0.4 )
+    b.top:SetHeight( m.db.icon_size / 12.8 )
+    b.bottom:SetWidth( m.db.icon_size * 0.4 )
+    b.bottom:SetHeight( m.db.icon_size / 12.8 )
+    b.left:SetWidth( m.db.icon_size / 12.8 )
+    b.left:SetHeight( m.db.icon_size * 0.4 )
+    b.right:SetWidth( m.db.icon_size / 12.8 )
+    b.right:SetHeight( m.db.icon_size * 0.4 )
+    b.hover_tex:SetPoint( "TOPLEFT", m.db.icon_size / 14, -m.db.icon_size / 14 )
+    b.hover_tex:SetPoint( "BOTTOMRIGHT", -m.db.icon_size / 14, m.db.icon_size / 14 )
+  end
+
+  if m.frame_cache[ "category_button" ] then
+    for i = 1, getn( m.frame_cache[ "category_button" ] ) do
+      local b = m.frame_cache[ "category_button" ][ i ]
+      set_size( b )
+      if not b.is_center then
+        b.is_used = false
+        b:SetScript( "OnEnter", b.on_enter )
+        b:Hide()
+      end
+    end
+  end
+
+  if m.frame_cache[ "companion_button" ] then
+    for i = 1, getn( m.frame_cache[ "companion_button" ] ) do
+      local button = m.frame_cache[ "companion_button" ][ i ]
+      set_size( button )
+    end
+  end
+
+  if not rotating and is_visible then
+    m.show( true )
+  elseif rotating then
+    m.show_categories()
+  end
+end
+
+---@param refresh boolean?
+function CompanionManager.show( refresh )
   local x, y = GetCursorPosition()
 
+  if not m.popup then
+    m.popup = m.create_frame()
+  end
+
   if m.spells_changed then
-    if m.get_companions() then
+    local got_companions = m.get_companions()
+    local got_toys = false
+    if m.db.show_toys then
+      got_toys = m.get_toys()
+    end
+
+    if got_companions or got_toys then
       m.spells_changed = false
     else
       return
     end
-  end
 
-  if not m.popup then
-    m.popup = m.create_frame()
     m.show_categories()
   end
 
-  if not no_point then
+  if not refresh then
     m.popup:ClearAllPoints()
     m.popup:SetPoint( "CENTER", UIParent, "BOTTOMLEFT", (x), (y) )
   end
@@ -445,115 +711,11 @@ function CompanionManager.toggle()
   end
 end
 
-function CompanionManager.slash_command( args )
-  if args == "" then
-    m.show()
-    return
-  end
-
-  if string.find( args, "^icon%-size" ) then
-    local size = tonumber( string.match( args, "^icon%-size (%d+)" ) )
-    if not size then
-      m.info( string.format( "Current icon size is %d", m.icon_size ) )
-    elseif size and size >= 32 and size <= 64 then
-      m.update_size( size )
-    else
-      m.info( "Size must be between 32 and 64" )
-    end
-    return
-  end
-
-  if args == "verbose" then
-    m.verbose = not m.verbose
-    CompanionManagerOptions.verbose = m.verbose
-    m.info( string.format( "%showing companion name on summon.", m.verbose and "|cff00dd00ON|r S" or "|cffdd0000OFF|r Not s" ) )
-    return
-  end
-
-  DEFAULT_CHAT_FRAME:AddMessage( string.format( "|cff71d5ff%s Help|r", m.name ) )
-  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm|r Toggle menu" )
-  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm icon-size|r Set icon size <|cffaaaaaasize|r>" )
-  DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm verbose|r Toggle showing companion name on summon" )
-end
-
-function CompanionManager.update_size( size )
-  local is_visible = false
-  CompanionManagerOptions.icon_size = size
-  m.icon_size = size
-
-  if not m.popup then return end
-
-  if m.popup:IsVisible() then
-    is_visible = true
-    m.hide_companions()
-    m.hide()
-  end
-
-  local function set_size( b )
-    b:SetWidth( m.icon_size )
-    b:SetHeight( m.icon_size )
-
-    b.bg_tex:SetPoint( "TOPLEFT", m.icon_size / 10.666, -m.icon_size / 10.666 )
-    b.bg_tex:SetPoint( "BOTTOMRIGHT", -m.icon_size / 10.6666, m.icon_size / 10.666 )
-    b.center:SetWidth( m.icon_size * 0.656 )
-    b.center:SetHeight( m.icon_size * 0.656 )
-    b.top:SetWidth( m.icon_size * 0.4 )
-    b.top:SetHeight( m.icon_size / 12.8 )
-    b.bottom:SetWidth( m.icon_size * 0.4 )
-    b.bottom:SetHeight( m.icon_size / 12.8 )
-    b.left:SetWidth( m.icon_size / 12.8 )
-    b.left:SetHeight( m.icon_size * 0.4 )
-    b.right:SetWidth( m.icon_size / 12.8 )
-    b.right:SetHeight( m.icon_size * 0.4 )
-    b.hover_tex:SetPoint( "TOPLEFT", m.icon_size / 14, -m.icon_size / 14 )
-    b.hover_tex:SetPoint( "BOTTOMRIGHT", -m.icon_size / 14, m.icon_size / 14 )
-  end
-
-  for i = 1, getn( m.frame_cache[ "category_button" ] ) do
-    local b = m.frame_cache[ "category_button" ][ i ]
-    set_size( b )
-    if not b.is_center then b.is_used = false end
-  end
-
-  if m.frame_cache[ "companion_button" ] then
-    for i = 1, getn( m.frame_cache[ "companion_button" ] ) do
-      local b = m.frame_cache[ "companion_button" ][ i ]
-      set_size( b )
-      b.is_used = false
-    end
-  end
-
-  m.show_categories()
-
-  if is_visible then
-    m.show( true )
-  end
-end
-
 ---@param message string
 ---@param long boolean?
 function CompanionManager.info( message, long )
   local tag = long and "|cff71d5ffCompanion|cff209ff9Manager|r" or "|cff71d5ffC|cff209ff9M|r"
   DEFAULT_CHAT_FRAME:AddMessage( string.format( "%s: %s", tag, message ) )
-end
-
-function CompanionManager.dump( o )
-  if not o then return "nil" end
-  if type( o ) ~= 'table' then return tostring( o ) end
-
-  local entries = 0
-  local s = "{"
-
-  for k, v in pairs( o ) do
-    if (entries == 0) then s = s .. " " end
-    local key = type( k ) ~= "number" and '"' .. k .. '"' or k
-    if (entries > 0) then s = s .. ", " end
-    s = s .. "[" .. key .. "] = " .. m.dump( v )
-    entries = entries + 1
-  end
-
-  if (entries > 0) then s = s .. " " end
-  return s .. "}"
 end
 
 CompanionManager:init()
