@@ -70,8 +70,8 @@ function CompanionManager.events.PLAYER_LOGIN()
 
   m.db = CompanionManagerOptions or {}
   m.db.icon_size = m.db.icon_size or 32
-  m.db.verbose = m.db.verbose or true
-  m.db.show_toys = m.db.show_toys or false
+  if m.db.verbose == nil then m.db.verbose = true end
+  if m.db.show_toys == nil then m.db.show_toys = false end
   m.db.companion_order = m.db.companion_order or {}
   m.db.category_angle = m.db.category_angle or 0
   m.db.category_order = m.db.category_order or {
@@ -414,11 +414,10 @@ function CompanionManager.show_companions( angle, category )
 
   radius = math.min( radius, 120 )
   m.visible_category = category
-  m.current_category = category
   m.current_angle = angle
 
-  local function find( table, id )
-    for i, companion in ipairs( table ) do
+  local function find( t, id )
+    for i, companion in ipairs( t ) do
       if type( companion ) == "number" and companion == id then return i end
       if type( companion ) == "table" and companion.id == id then return i end
     end
@@ -437,23 +436,26 @@ function CompanionManager.show_companions( angle, category )
 
   local i = (-count / 2)
   local c = count
-  for _, id in ipairs( m.db.companion_order[ category ] ) do
+  for k, id in pairs( m.db.companion_order[ category ] ) do
     local index = find( m.companions[ category ], id )
     local companion = m.companions[ category ][ index ]
-    companion.category = category
-    if i > 3 then
-      radius = m.db.icon_size * m.radius * 2.6
-      spread = 36 / (32 * m.radius * 2.6)
-      i = (-c / 2)
-    end
-    local offsetAngle = angle + ((i + 0.5) * spread)
-    local x = px + radius * math.cos( offsetAngle )
-    local y = py + radius * math.sin( offsetAngle )
+    
+    if companion then
+      companion.category = category
+      if k > 15 then
+        radius = m.db.icon_size * m.radius * 2.6
+        spread = 36 / (32 * m.radius * 2.6)
+        i = (-c / 2)
+      end
+      local offsetAngle = angle + ((i + 0.5) * spread)
+      local x = px + radius * math.cos( offsetAngle )
+      local y = py + radius * math.sin( offsetAngle )
 
-    local button = m.button_companion_create( m.popup, companion )
-    button:SetPoint( "Center", m.popup, "BottomLeft", x, y )
-    i = i + 1
-    c = c - 1
+      local button = m.button_companion_create( m.popup, companion )
+      button:SetPoint( "Center", m.popup, "BottomLeft", x, y )
+      i = i + 1
+      c = c - 1
+    end
   end
 end
 
@@ -501,8 +503,10 @@ function CompanionManager.summon_random_companion()
   local count = 0
 
   for _, category in pairs( m.companions ) do
-    for _, _ in pairs( category ) do
-      count = count + 1
+    if category ~= "Toys" and category ~= "Illusions" then
+      for _, _ in pairs( category ) do
+        count = count + 1
+      end
     end
   end
 
@@ -510,11 +514,13 @@ function CompanionManager.summon_random_companion()
   count = 0
 
   for _, category in pairs( m.companions ) do
-    for _, companion in pairs( category ) do
-      count = count + 1
-      if count == random then
-        m.summon_companion( companion )
-        break
+    if category ~= "Toys" and category ~= "Illusions" then
+      for _, companion in pairs( category ) do
+        count = count + 1
+        if count == random then
+          m.summon_companion( companion )
+          break
+        end
       end
     end
   end

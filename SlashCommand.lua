@@ -89,6 +89,7 @@ function M.new( name, slash_commands )
 			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm|r Toggle menu" )
 			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm toggle|r|||cff71d5ffshow|r|||cff71d5ffhide|r Toggle/show/hide the menu" )
 			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm icon-size|r Set icon size <|cffaaaaaasize|r>" )
+			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm reset-order|r Reset order of all icons" )
 			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm verbose|r Toggle showing companion name on summon" )
 			DEFAULT_CHAT_FRAME:AddMessage( "|cff71d5ff/cm toys|r Toggle showing toys in menu" )
 		end )
@@ -115,6 +116,11 @@ function M.new( name, slash_commands )
 			m.update_size( m.db.icon_size )
 
 			m.info( string.format( "Show toys in menu: %s", m.db.show_toys and "|cff00dd00ON|r" or "|cffdd0000OFF|r" ) )
+		end )
+
+		register( "reset-order", function()
+			m.db.companion_order = {}
+			m.info( "Companion sort order has been reset." )
 		end )
 
 		register( "show", function() m.show() end )
