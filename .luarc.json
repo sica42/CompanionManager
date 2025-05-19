@@ -12,7 +12,7 @@
   "Lua.workspace.checkThirdParty": false,
   "Lua.workspace.ignoreDir": [],
   "type.inferParamType": true,
-  "workspace.library": [ "wow-api-type-definitions" ],
+  "workspace.library": [ "../wow-api-type-definitions" ],
   "diagnostics.disable": [],
   "Lua.hint.enable": true
 }

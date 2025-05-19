@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: Companion Manager
 ## Author: sica
-## Version: 1.2
-## Notes: Easy companion mananger
+## Version: 1.3
+## Notes: Radial menu to summon and organize companions
 ## SavedVariablesPerCharacter: CompanionManagerOptions
 
 CompanionManager.lua
