@@ -511,9 +511,9 @@ end
 function CompanionManager.summon_random_companion()
 	local count = 0
 
-	for _, category in pairs( m.companions ) do
+	for category, companions in pairs( m.companions ) do
 		if category ~= "Toys" and category ~= "Illusions" then
-			for _, _ in pairs( category ) do
+			for _, _ in pairs( companions ) do
 				count = count + 1
 			end
 		end
@@ -522,9 +522,9 @@ function CompanionManager.summon_random_companion()
 	local random = math.random( count )
 	count = 0
 
-	for _, category in pairs( m.companions ) do
+	for category, companions in pairs( m.companions ) do
 		if category ~= "Toys" and category ~= "Illusions" then
-			for _, companion in pairs( category ) do
+			for _, companion in pairs( companions ) do
 				count = count + 1
 				if count == random then
 					m.summon_companion( companion )
