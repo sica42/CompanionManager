@@ -68,7 +68,8 @@ function CompanionManager.events.PLAYER_LOGIN()
 	m.slash_command = m.SlashCommand.new( m.name, "cm" )
 	m.slash_command.init()
 
-	m.db = CompanionManagerOptions or {}
+	CompanionManagerOptions = CompanionManagerOptions or {}
+	m.db = CompanionManagerOptions
 	m.db.icon_size = m.db.icon_size or 32
 	if m.db.verbose == nil then m.db.verbose = true end
 	if m.db.show_toys == nil then m.db.show_toys = false end
