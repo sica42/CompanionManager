@@ -20,19 +20,36 @@ CompanionManager.events = {}
 CompanionManager.categories = {
 	Cats = { "Black Tabby", "Bombay", "Cornish Rex", "Corrupted Kitten", "Midnight", "Mr. Bigglesworth", "Orange Tabby", "Siamese", "Silver Tabby", "White Kitten", "White Tiger Cub" },
 	Frogs = { "A Jubling's Tiny Home", "Azure Frog", "Bullfrog", "Dart Frog", "Dream Frog", "Golden Frog", "Infinite Frog", "Island Frog", "Pink Frog", "Poison Frog", "Pond Frog", "Snow Frog", "Tree Frog", "Wood Frog" },
-	Flying = { "Amani Eagle", "Azure Whelpling", "Azure Wind Serpent", "Bronze Whelpling", "Cockatiel", "Dark Wind Serpent", "Emerald Wind Serpent", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Phoenix Hatchling", "Senegal", "Snowy Owl", "Spectral Faeling", "Sprite Darter Hatchling", "Tangerine Wind Serpent" },
+	Flying = { "Amani Eagle", "Azure Whelpling", "Azure Wind Serpent", "Beaky", "Bronze Whelpling", "Cockatiel", "Dark Wind Serpent", "Dragonhawk Hatchling", "Emerald Wind Serpent", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Phoenix Hatchling", "Senegal", "Snowy Owl", "Spectral Faeling", "Sprite Darter Hatchling", "Tangerine Wind Serpent" },
 	Turtles = { "Albino Snapjaw", "Hawksbill Snapjaw", "Leatherback Snapjaw", "Loggerhead Snapjaw", "Olive Snapjaw", "Speedy" },
-	Animals = { "Albino Snake", "Ancona", "Black Kingsnake", "Crimson Snake", "Farm Chicken", "Lost Farm Sheep", "Lulu", "Panda Collar", "Pengu", "Poley", "Scarlet Snake", "Snowshoe Rabbit", "Worg Pup" },
+	Animals = { "Albino Snake", "Ancona", "Billy", "Black Kingsnake", "Crimson Snake", "Farm Chicken", "Fox Kit", "Little Fawn", "Lost Farm Sheep", "Lulu", "Mr. Wiggles", "Panda Collar", "Pengu", "Poley", "Scarlet Snake", "Snowshoe Rabbit", "Wally", "Worg Pup" },
 	Mechanical = { "Darkmoon Tonk", "Green Steam Tonk", "Mechanical Chicken", "Purple Steam Tonk" },
 	Seasonal = { "Blitzen", "Father Winter's Helper", "Jingling Bell", "Green Helper Box", "Hedwig", "Mini Krampus", "Red Helper Box", "Tiny Snowman", "Winter Reindeer" },
+	Hatchlings = { "Araxxna's Hatchling", "Black Widow Hatchling", "Cavernweb Hatchling", "Darkmist Hatchling", "Lava Hatchling", "Maexxna's Hatchling", "Mistbark Hatchling", "Night Web Hatchling", "Razzashi Hatchling", "Skitterweb Hatchling", "Smolderweb Hatchling", "Tarantula Hatchling", "Timberweb Hatchling", "Webwood Hatchling", "Wildthorn Hatchling" },
 	Bots = { "Caravan Kodo", "Field Repair Bot 75B", "Forworn Mule", "Mechanical Auctioneer", "Summon: Auctioneer", "Summon: Barber", "Summon: Surgeon" },
 	Illusions = {},
 	Toys = {},
 }
 
+CompanionManager.category_default_order = {
+	"Cats",
+	"Frogs",
+	"Hatchlings",
+	"Turtles",
+	"Flying",
+	"Animals",
+	"Seasonal",
+	"Mechanical",
+	"Other",
+	"Bots",
+	"Toys",
+	"Illusions"
+}
+
 CompanionManager.category_icons = {
 	Cats = "Interface\\Icons\\inv_pet_cats_cornishrexcat",
 	Frogs = "Interface\\Icons\\Spell_Shaman_Hex",
+	Hatchlings = "Interface\\Icons\\Ability_Hunter_Pet_Spider",
 	Flying = "Interface\\Icons\\INV_Feather_03",
 	Turtles = "Interface\\Icons\\Ability_Hunter_Pet_Turtle",
 	Animals = "Interface\\Icons\\Spell_Magic_PolymorphChicken",
@@ -75,24 +92,12 @@ function CompanionManager.events.PLAYER_LOGIN()
 	if m.db.show_toys == nil then m.db.show_toys = false end
 	m.db.companion_order = m.db.companion_order or {}
 	m.db.category_angle = m.db.category_angle or 0
-	m.db.category_order = m.db.category_order or {
-		"Cats",
-		"Frogs",
-		"Turtles",
-		"Flying",
-		"Animals",
-		"Seasonal",
-		"Mechanical",
-		"Other",
-		"Bots",
-		"Toys",
-		"Illusions"
-	}
+	m.db.category_order = m.db.category_order or m.category_default_order
 
 	for _, v in m.db.companion_order do
 		if v[ 1 ] and type( v[ 1 ] ) == "number" then
 			m.db.companion_order = {}
-			m.info( "Companion sort order has been reset (required by new version).")
+			m.info( "Companion sort order has been reset (required by new version)." )
 			break
 		end
 	end
@@ -427,17 +432,16 @@ function CompanionManager.show_companions( angle, category )
 
 	local function find( t, name )
 		for i, companion in ipairs( t ) do
-			if type( companion ) == "number" and companion == name then return i end
+			if type( companion ) == "string" and companion == name then return i end
 			if type( companion ) == "table" and companion.name == name then return i end
 		end
 		return nil
 	end
 
 	m.db.companion_order[ category ] = m.db.companion_order[ category ] or {}
-
 	if count ~= getn( m.db.companion_order[ category ] ) then
 		for _, companion in ipairs( m.companions[ category ] ) do
-			if not find( m.db.companion_order[ category ], tonumber( companion.name ) ) then
+			if not find( m.db.companion_order[ category ], companion.name ) then
 				table.insert( m.db.companion_order[ category ], companion.name )
 			end
 		end
