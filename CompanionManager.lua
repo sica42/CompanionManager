@@ -22,7 +22,7 @@ CompanionManager.categories = {
 	Frogs = { "A Jubling's Tiny Home", "Azure Frog", "Bullfrog", "Dart Frog", "Dream Frog", "Golden Frog", "Infinite Frog", "Island Frog", "Pink Frog", "Poison Frog", "Pond Frog", "Snow Frog", "Tree Frog", "Wood Frog" },
 	Flying = { "Amani Eagle", "Azure Whelpling", "Azure Wind Serpent", "Beaky", "Bronze Whelpling", "Cockatiel", "Dark Wind Serpent", "Dragonhawk Hatchling", "Emerald Wind Serpent", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Phoenix Hatchling", "Senegal", "Snowy Owl", "Spectral Faeling", "Sprite Darter Hatchling", "Tangerine Wind Serpent" },
 	Turtles = { "Albino Snapjaw", "Hawksbill Snapjaw", "Leatherback Snapjaw", "Loggerhead Snapjaw", "Olive Snapjaw", "Speedy" },
-	Animals = { "Albino Snake", "Ancona", "Billy", "Black Kingsnake", "Crimson Snake", "Farm Chicken", "Fox Kit", "Little Fawn", "Lost Farm Sheep", "Lulu", "Mr. Wiggles", "Panda Collar", "Pengu", "Poley", "Scarlet Snake", "Snowshoe Rabbit", "Wally", "Worg Pup" },
+	Animals = { "Albino Snake", "Ancona", "Billy", "Black Kingsnake", "Black Piglet", "Crimson Snake", "Farm Chicken", "Fox Kit", "Little Fawn", "Lost Farm Sheep", "Lulu", "Mr. Wiggles", "Panda Collar", "Pengu", "Poley", "Scarlet Snake", "Snowshoe Rabbit", "Wally", "Worg Pup", "Wyvern Roost Hatchling" },
 	Mechanical = { "Darkmoon Tonk", "Green Steam Tonk", "Mechanical Chicken", "Purple Steam Tonk" },
 	Seasonal = { "Blitzen", "Father Winter's Helper", "Jingling Bell", "Green Helper Box", "Hedwig", "Mini Krampus", "Red Helper Box", "Tiny Snowman", "Winter Reindeer" },
 	Hatchlings = { "Araxxna's Hatchling", "Black Widow Hatchling", "Cavernweb Hatchling", "Darkmist Hatchling", "Lava Hatchling", "Maexxna's Hatchling", "Mistbark Hatchling", "Night Web Hatchling", "Razzashi Hatchling", "Skitterweb Hatchling", "Smolderweb Hatchling", "Tarantula Hatchling", "Timberweb Hatchling", "Webwood Hatchling", "Wildthorn Hatchling" },
@@ -232,6 +232,10 @@ function CompanionManager.create_button( parent, type )
 	hover_tex:SetVertexColor( 1, 1, 0, 0 )
 	button.hover_tex = hover_tex
 
+	local text = button:CreateFontString( nil, "OVERLAY", "NumberFontNormal" )
+	text:SetPoint( "Center", button, "Center", 0, 0 )
+	button.text = text
+
 	button.set_icon = function( button_icon )
 		button.icon = button_icon
 		center:SetTexture( button_icon )
@@ -300,6 +304,7 @@ function CompanionManager.button_companion_create( parent, companion )
 	button.category = companion.category
 	button.name = companion.name
 	button.id = companion.id
+	button:Hide()
 
 	local on_enter = button:GetScript( "OnEnter" )
 	button:SetScript( "OnEnter", function()
@@ -321,7 +326,37 @@ function CompanionManager.button_companion_create( parent, companion )
 		end
 	end )
 
+	button:SetScript( "OnShow", function()
+		local start, duration = GetSpellCooldown( companion.id, BOOKTYPE_SPELL )
+		if duration > 0 then
+			button:SetScript( "OnUpdate", m.button_update )
+			local remaining = start + duration - GetTime()
+			this.text:SetText( m.format_sec_to_min( math.ceil( remaining ) ) )
+		else
+			this.text:SetText( "" )
+			button:SetScript( "OnUpdate", nil )
+		end
+	end )
+
+	button:Show()
+
 	return button
+end
+
+function CompanionManager.button_update()
+	this.elapsed_since_update = this.elapsed_since_update and this.elapsed_since_update + arg1 or arg1
+
+	if this.elapsed_since_update >= 1 then
+		this.elapsed_since_update = 0
+		local start, duration = GetSpellCooldown( this.id, BOOKTYPE_SPELL )
+		if duration > 0 then
+			local remaining = start + duration - GetTime()
+			this.text:SetText( m.format_sec_to_min( math.ceil( remaining ) ) )
+		else
+			this:SetScript( "OnUpdate", nil )
+			this.text:SetText( "" )
+		end
+	end
 end
 
 function CompanionManager.button_drag_start()
@@ -539,6 +574,16 @@ function CompanionManager.summon_random_companion()
 	end
 
 	m.hide()
+end
+
+---@param seconds integer
+function CompanionManager.format_sec_to_min( seconds )
+	if seconds < 100 then
+		return string.format( "%d", seconds - 1 )
+	else
+		local mins = math.floor( (seconds + 28) / 60 )
+		return string.format( "|cff71d5ff%d|rM", mins )
+	end
 end
 
 ---@param name string
