@@ -12,8 +12,8 @@ local m = CompanionManager
 
 BINDING_HEADER_CM_HEADER = "Companion Manager"
 BINDING_NAME_CM_OPENMENU = "Toggle menu"
-CM_COMPANIONS_SPELLTAB = "ZzCompanions"
-CM_TOYS_SPELLTAB = "ZzzzToys"
+CM_COMPANIONS_SPELLTAB = "Companions"
+CM_TOYS_SPELLTAB = "Toys"
 
 CompanionManager.name = "CompanionManager"
 CompanionManager.events = {}
@@ -22,7 +22,7 @@ CompanionManager.categories = {
 	Frogs = { "A Jubling's Tiny Home", "Azure Frog", "Bullfrog", "Dart Frog", "Dream Frog", "Golden Frog", "Infinite Frog", "Island Frog", "Pink Frog", "Poison Frog", "Pond Frog", "Snow Frog", "Tree Frog", "Wood Frog" },
 	Flying = { "Amani Eagle", "Azure Whelpling", "Azure Wind Serpent", "Beaky", "Bronze Whelpling", "Cockatiel", "Dark Wind Serpent", "Dragonhawk Hatchling", "Emerald Wind Serpent", "Gilnean Raven", "Glitterwing", "Green Wing Macaw", "Hawk Owl", "Hippogryph Hatchling", "Phoenix Hatchling", "Senegal", "Snowy Owl", "Spectral Faeling", "Sprite Darter Hatchling", "Tangerine Wind Serpent" },
 	Turtles = { "Albino Snapjaw", "Hawksbill Snapjaw", "Leatherback Snapjaw", "Loggerhead Snapjaw", "Olive Snapjaw", "Speedy" },
-	Animals = { "Albino Snake", "Ancona", "Billy", "Black Kingsnake", "Black Piglet", "Crimson Snake", "Farm Chicken", "Fox Kit", "Little Fawn", "Lost Farm Sheep", "Lulu", "Mr. Wiggles", "Panda Collar", "Pengu", "Poley", "Scarlet Snake", "Snowshoe Rabbit", "Wally", "Worg Pup", "Wyvern Roost Hatchling" },
+	Animals = { "Albino Snake", "Ancona", "Baby Moonwhisper Elekk", "Billy", "Black Kingsnake", "Black Piglet", "Crimson Snake", "Farm Chicken", "Fox Kit", "Grumbles", "Little Fawn", "Lost Farm Sheep", "Lulu", "Mr. Wiggles", "Panda Collar", "Pengu", "Poley", "Rufflebeak", "Scarlet Snake", "Snowshoe Rabbit", "Swiftstar", "Wally", "Worg Pup", "Wyvern Roost Hatchling" },
 	Mechanical = { "Darkmoon Tonk", "Green Steam Tonk", "Mechanical Chicken", "Purple Steam Tonk" },
 	Seasonal = { "Blitzen", "Father Winter's Helper", "Jingling Bell", "Green Helper Box", "Hedwig", "Mini Krampus", "Red Helper Box", "Tiny Snowman", "Winter Reindeer" },
 	Hatchlings = { "Araxxna's Hatchling", "Black Widow Hatchling", "Cavernweb Hatchling", "Darkmist Hatchling", "Lava Hatchling", "Maexxna's Hatchling", "Mistbark Hatchling", "Night Web Hatchling", "Razzashi Hatchling", "Skitterweb Hatchling", "Smolderweb Hatchling", "Tarantula Hatchling", "Timberweb Hatchling", "Webwood Hatchling", "Wildthorn Hatchling" },
